@@ -2,7 +2,7 @@
 
 A local-first fintech workspace for exploring the **financial consequences of a purchase** before making it. Compare six possible futures, protect an emergency reserve, plan a purchase, understand EMI costs, and track existing installments — all in one deterministic, explainable demo app.
 
-Built with **React + TypeScript + Vite + Tailwind CSS + Recharts** on the frontend and **FastAPI + SQLAlchemy + SQLite** on the backend.
+Built with **Streamlit** for the interface and **FastAPI + SQLAlchemy + SQLite** for the API and persistence. All application source is Python: there are no React, TypeScript, CSS or standalone HTML files in the current tree.
 
 ---
 
@@ -24,26 +24,26 @@ Every projection is deterministic, rounded and explainable. No investment return
 
 ## Features
 
-### Six working pages
+### Six working views
 
-| Page | What it does |
+| View | What it does |
 | --- | --- |
 | **Overview** | Financial weather score, 12-month savings projection, cash-flow split, planned purchase, upcoming payments and recent activity. |
 | **Parallel Futures** | Compare no purchase, buy now, wait & save, a lighter alternative, EMI and a buy + unexpected-expense path. Includes a recommendation, comparison chart, scenario details and a stress lab for salary delays and spending shocks. |
 | **Purchase Planner** | Assess a purchase against the ring-fenced reserve, see readiness checks, a trajectory to the target date, a recommended saving pace and a saved-plan blueprint. |
-| **EMI Calculator** | Calculate reducing-balance EMIs, total interest, processing fees, effective cost and affordability context. Save the result directly to the tracker. |
+| **EMI Calculator** | Calculate reducing-balance EMIs, total interest, processing fees, effective cost and affordability context. Download the schedule or save the result directly to the tracker. |
 | **Installment Tracker** | Add, pay, delete and review installment plans. Payment reminders, overdue states, progress, monthly commitment and completed-plan history are included. |
 | **Financial Profile** | Validated editing of income, expenses, debt, savings, reserve target and goals, with a live preview of the backend scoring model. Restore the demo profile from a confirmation dialog. |
 
 ### Product behaviour
 
-- Premium midnight-navy and emerald visual system, responsive from 320 px upward.
-- Real loading skeletons, empty states, error states, toast confirmations and accessible dialogs.
-- Mobile bottom navigation and slide-out drawer; collapsible desktop sidebar.
-- All navigation items resolve to working routes. Unknown routes get a designed 404 page.
+- Midnight-navy and emerald visual system with an embedded Streamlit theme.
+- Responsive layout from narrow phone widths through wide desktop screens.
+- Real loading states, empty states, error states, flash confirmations and session-backed dialogs.
+- All six views are registered through `st.navigation`. Overview is served at `/`; the other views use `/futures`, `/planner`, `/emi`, `/installments` and `/profile`.
 - Every save, delete, payment and simulation is a real API call. No placeholder buttons.
-- A runtime error boundary converts unexpected interface failures into a recoverable screen.
-- A 404 fallback is served by the backend for client-side routes when the production build exists.
+- Charts are rendered with Altair from Python data frames and include adjacent text summaries.
+- The emergency reserve is protected on every page and in every calculation.
 
 ### Financial model
 
@@ -66,9 +66,8 @@ The purchase decision is illustrative, not financial advice.
 
 ### Prerequisites
 
-- **Node.js 20.19+ or 22.12+** (Node 22 LTS recommended)
-- **Python 3.12+**
-- npm
+- **Python 3.12+** (3.14 works in the current development environment)
+- No Node.js, npm or browser build step is required.
 
 ### One command
 
@@ -76,32 +75,29 @@ The purchase decision is illustrative, not financial advice.
 ./scripts/dev.sh
 ```
 
-The script creates `backend/.venv`, installs backend requirements and frontend packages if needed, then starts both servers:
+The script creates `backend/.venv` if needed, installs backend and Streamlit dependencies, then starts both servers:
 
-- Frontend: <http://localhost:5173>
+- Streamlit interface: <http://localhost:8501>
 - API docs: <http://localhost:8000/docs>
 
 Press `Ctrl+C` once to stop both.
 
 ### Manual setup
 
-**Backend**
-
 ```bash
 python3 -m venv backend/.venv
 backend/.venv/bin/pip install -r backend/requirements.txt
+backend/.venv/bin/pip install -r requirements-ui.txt
+
+# Terminal 1 — API
 backend/.venv/bin/uvicorn app.main:app --app-dir backend --reload --port 8000
+
+# Terminal 2 — Streamlit
+API_URL=http://127.0.0.1:8000/api/v1 \
+  backend/.venv/bin/python -m streamlit run streamlit_app/app.py
 ```
 
-**Frontend** (in a second terminal)
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The Vite dev server proxies `/api` to `http://127.0.0.1:8000` by default. Override with `VITE_API_PROXY_TARGET` if your API runs elsewhere.
+The Streamlit app reads `API_URL` from the environment, falling back to an `API_URL` entry in the repository `.env`, then to `http://127.0.0.1:8000/api/v1`.
 
 ### First launch
 
@@ -128,36 +124,29 @@ This deletes the local SQLite file and recreates the demo profile, installments,
 ## Tests and checks
 
 ```bash
-# Backend unit + API tests
+# Backend unit + API tests and Streamlit preview/formatting tests
 backend/.venv/bin/pytest
 
-# Frontend component and model tests
-cd frontend
-npm test
+# Python syntax check for the app and UI
+backend/.venv/bin/python -m compileall -q backend/app streamlit_app
 
-# TypeScript production build
-npm run build
-
-# Static lint checks
-npm run lint
+# Start the interface for a manual smoke test
+backend/.venv/bin/python -m streamlit run streamlit_app/app.py
 ```
 
-The backend suite covers affordability, the financial engine, scenario paths, stress tests, EMI amortization/affordability, installments, profile validation, purchases and health. Frontend tests cover the deterministic profile preview and the add-installment form validation/payload.
+The suite covers affordability, the financial engine, scenario paths, stress tests, EMI amortization/affordability, installments, profile validation, purchases, health, Streamlit preview parity and currency formatting.
 
----
-
-## Production build
+For an automated render check of the default view, run a Streamlit `AppTest` against `streamlit_app/app.py` while the API is running:
 
 ```bash
-cd frontend
-npm run build
-cd ..
-backend/.venv/bin/uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000
+API_URL=http://127.0.0.1:8000/api/v1 backend/.venv/bin/python - <<'PY'
+from streamlit.testing.v1 import AppTest
+at = AppTest.from_file("streamlit_app/app.py", default_timeout=90)
+at.run()
+assert not at.exception
+print("App rendered with", len(at.metric), "metrics")
+PY
 ```
-
-When `frontend/dist` exists, FastAPI serves the built SPA from `/` and falls back to `index.html` for client-side routes. API routes remain under `/api/v1`. The built site is then available at <http://localhost:8000>.
-
-Alternatively, serve `frontend/dist` with any static host and point `VITE_API_URL` at the API. The included Docker setup uses nginx with an SPA fallback and an `/api` proxy.
 
 ---
 
@@ -167,9 +156,14 @@ Alternatively, serve `frontend/dist` with any static host and point `VITE_API_UR
 docker compose up --build
 ```
 
-- App: <http://localhost:5173>
+- Streamlit interface: <http://localhost:8501>
 - API: <http://localhost:8000>
 - API docs: <http://localhost:8000/docs>
+
+The Compose stack has two services:
+
+- `backend` — FastAPI, SQLAlchemy and the SQLite database.
+- `ui` — Streamlit, built from `Dockerfile.streamlit`, calling the API at `http://backend:8000/api/v1`.
 
 Data is stored in the named volume `fpv-data`. Rebuild after changing dependencies:
 
@@ -189,17 +183,16 @@ This deletes the volume and all local app data.
 
 ## Configuration
 
-Copy `.env.example` to `.env` at the repository root for backend overrides. Copy `frontend/.env.example` to `frontend/.env` for frontend overrides.
+Copy `.env.example` to `.env` at the repository root for local overrides.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
+| `API_URL` | `http://127.0.0.1:8000/api/v1` | FastAPI base URL used by Streamlit. |
 | `DATABASE_URL` | `sqlite:///<repo>/data/financial_parallelverse.db` | SQLAlchemy database URL. |
-| `CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated browser origins. |
+| `CORS_ORIGINS` | `http://localhost:8501,http://127.0.0.1:8501` | Comma-separated browser origins, only needed for direct browser API clients. |
 | `SEED_DEMO` | `true` | Seed demo data when no profile exists. |
 | `API_PREFIX` | `/api/v1` | API route prefix. |
 | `ENVIRONMENT` | `development` | Reported by the health endpoint. |
-| `VITE_API_URL` | `/api/v1` | API base used by the browser. |
-| `VITE_API_PROXY_TARGET` | `http://127.0.0.1:8000` | Vite dev proxy target. |
 
 Do not commit `.env` files. The API has no authentication and is intended for local/demo use.
 
@@ -229,7 +222,7 @@ All endpoints are prefixed with `/api/v1`.
 | `DELETE` | `/installments/{id}` | Delete a plan and its payment records. |
 | `GET` | `/installments/reminders` | Actionable reminders only. |
 
-OpenAPI documentation is available at `/docs` and `/redoc`.
+OpenAPI documentation is available at `/docs` and `/redoc`. The API root (`/`) returns service information pointing at the Streamlit interface.
 
 ---
 
@@ -237,34 +230,41 @@ OpenAPI documentation is available at `/docs` and `/redoc`.
 
 ```text
 financial-parallelverse/
+├── streamlit_app/
+│   ├── app.py                  # page config, navigation, sidebar shell
+│   ├── api.py                  # HTTP client for the FastAPI service
+│   ├── theme.py                # embedded midnight/emerald styling
+│   ├── ui.py                   # formatting, badges, dialogs and shared UI
+│   ├── charts.py               # Altair projection, futures, cashflow and EMI charts
+│   ├── finance.py              # pure preview math mirrored from the backend
+│   ├── views/                  # six product views
+│   │   ├── overview.py
+│   │   ├── futures.py
+│   │   ├── planner.py
+│   │   ├── emi.py
+│   │   ├── installments.py
+│   │   └── profile.py
+│   └── tests/                  # Streamlit preview and formatting tests
 ├── backend/
 │   ├── app/
-│   │   ├── api/                 # health, profile, dashboard, scenarios, purchases, EMI, installments
-│   │   ├── services/            # affordability, scenario engine, EMI, purchase planner, seed, reminders
-│   │   ├── config.py            # pydantic-settings configuration
-│   │   ├── database.py          # SQLAlchemy engine/session
-│   │   ├── models.py            # profile, installment, payment, simulation, purchase plan
-│   │   ├── schemas.py           # typed API contracts
-│   │   └── main.py              # FastAPI app, lifespan, routers, SPA serving
-│   ├── tests/                   # pytest unit and API suite
+│   │   ├── api/                # health, profile, dashboard, scenarios, purchases, EMI, installments
+│   │   ├── services/           # affordability, scenario engine, EMI, purchase planner, seed, reminders
+│   │   ├── config.py           # pydantic-settings configuration
+│   │   ├── database.py         # SQLAlchemy engine/session
+│   │   ├── models.py           # profile, installment, payment, simulation, purchase plan
+│   │   ├── schemas.py          # typed API contracts
+│   │   └── main.py             # FastAPI app, lifespan and routers
+│   ├── tests/                  # pytest unit and API suite
 │   ├── Dockerfile
 │   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── components/          # dashboard, simulator, purchases, EMI, installments, layout, UI
-│   │   ├── lib/                 # typed API client, app context, math and formatting helpers
-│   │   ├── pages/               # six product pages + 404
-│   │   ├── test/                # Vitest setup
-│   │   ├── App.tsx              # providers, routes, toaster, error boundary
-│   │   └── index.css            # design tokens and global styles
-│   ├── nginx.conf
-│   ├── Dockerfile
-│   └── package.json
 ├── scripts/
-│   ├── dev.sh                   # run both servers
-│   └── seed_demo.py             # seed or reset the demo database
-├── data/                        # SQLite database (ignored by git)
+│   ├── dev.sh                  # run FastAPI + Streamlit
+│   └── seed_demo.py            # seed or reset the demo database
+├── .streamlit/config.toml      # Streamlit theme and server defaults
+├── requirements-ui.txt         # Streamlit, Altair, pandas and httpx
+├── Dockerfile.streamlit        # interface image
 ├── docker-compose.yml
+├── data/                       # SQLite database (ignored by git)
 ├── .env.example
 ├── AGENTS.md
 └── README.md
@@ -274,12 +274,16 @@ financial-parallelverse/
 
 ## Design and engineering notes
 
-- **Typed contracts end to end.** Pydantic schemas define the API shape; `frontend/src/types/api.ts` mirrors it; the API client is centralised in `frontend/src/lib/api.ts`.
-- **Server is the source of truth.** The profile page preview replicates the affordability model for instant feedback, but saving always revalidates on the backend and then refreshes the dashboard.
+- **One language, two processes.** Streamlit collects input and renders responses; FastAPI owns validation, scoring, persistence and all financial calculations.
+- **Server is the source of truth.** `streamlit_app/finance.py` mirrors the profile preview for instant feedback, but saving always revalidates on the backend and then refreshes from the API.
+- **Embedded styling, no asset pipeline.** The theme lives in a Python string in `streamlit_app/theme.py`; Streamlit's palette is configured in `.streamlit/config.toml`. There are no separate CSS, HTML or JavaScript source files.
+- **Typed contracts.** Pydantic schemas define API responses. The Streamlit client consumes them centrally in `streamlit_app/api.py`.
 - **One profile record.** This is a personal demo workspace rather than a multi-user SaaS app. Profile reset updates only profile fields, preserving plans, installments and simulations.
 - **Deterministic by design.** Simulations are pure functions of profile, inputs and dates. No randomness or market data is involved.
-- **Accessible interactions.** Dialogs use Radix primitives with titles/descriptions, forms use labels and inline errors, charts have text alternatives, progress bars are labelled, and reduced-motion preferences are respected.
-- **No secrets in the repository.** SQLite, environment files and build output are ignored. The demo data is fictional.
+- **Real states only.** Mutations call the API, show loading/error states, and refresh the relevant data. Dialogs persist their open state across Streamlit reruns.
+- **No secrets in the repository.** SQLite, environment files, Streamlit secrets and build output are ignored. The demo data is fictional.
+
+The earlier React/Vite interface remains available in the repository's Git history, but it is no longer part of the working tree or build.
 
 ### Known limitations
 

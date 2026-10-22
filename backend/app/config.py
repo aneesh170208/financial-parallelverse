@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     api_prefix: str = "/api/v1"
     database_url: str = f"sqlite:///{BASE_DIR / 'data' / 'financial_parallelverse.db'}"
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    cors_origins: str = "http://localhost:8501,http://127.0.0.1:8501"
     seed_demo: bool = True
 
     model_config = SettingsConfigDict(

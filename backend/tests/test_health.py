@@ -11,3 +11,9 @@ def test_api_information(client):
     response = client.get("/api")
     assert response.status_code == 200
     assert response.json()["health"] == "/api/v1/health"
+
+
+def test_root_points_to_the_streamlit_interface(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.json()["streamlit"] == "http://localhost:8501"

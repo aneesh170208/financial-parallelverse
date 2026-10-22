@@ -1,10 +1,8 @@
 from contextlib import asynccontextmanager
-from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 
 from .api import dashboard, emi, health, installments, profile, purchases, scenarios
 from .config import settings
@@ -48,6 +46,19 @@ for router in (
     app.include_router(router, prefix=settings.api_prefix)
 
 
+@app.get("/")
+def root() -> JSONResponse:
+    return JSONResponse(
+        {
+            "name": settings.app_name,
+            "message": "API is running. Start the Streamlit interface on port 8501 for the full experience.",
+            "streamlit": "http://localhost:8501",
+            "docs": "/docs",
+            "health": f"{settings.api_prefix}/health",
+        }
+    )
+
+
 @app.get("/api")
 def api_information() -> dict:
     return {
@@ -56,30 +67,3 @@ def api_information() -> dict:
         "docs": "/docs",
         "health": f"{settings.api_prefix}/health",
     }
-
-
-dist_dir = Path(__file__).resolve().parents[2] / "frontend" / "dist"
-if dist_dir.exists():
-    assets_dir = dist_dir / "assets"
-    if assets_dir.exists():
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
-
-    @app.get("/{full_path:path}", include_in_schema=False)
-    def serve_frontend(full_path: str) -> FileResponse:
-        """Serve the built SPA and let client-side routes fall back to index.html."""
-        if full_path.startswith("api/"):
-            raise HTTPException(status_code=404, detail="Not found")
-        candidate = (dist_dir / full_path).resolve()
-        if candidate.is_file() and dist_dir.resolve() in candidate.parents:
-            return FileResponse(candidate)
-        return FileResponse(dist_dir / "index.html")
-else:
-    @app.get("/")
-    def root() -> JSONResponse:
-        return JSONResponse(
-            {
-                "name": settings.app_name,
-                "message": "API is running. Start the Vite frontend on port 5173 for the full experience.",
-                "docs": "/docs",
-            }
-        )

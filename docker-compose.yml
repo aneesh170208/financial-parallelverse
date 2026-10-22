@@ -5,7 +5,7 @@ services:
     environment:
       ENVIRONMENT: production
       DATABASE_URL: sqlite:////data/financial_parallelverse.db
-      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      CORS_ORIGINS: http://localhost:8501,http://127.0.0.1:8501
       SEED_DEMO: "true"
     volumes:
       - fpv-data:/data
@@ -23,14 +23,17 @@ services:
       retries: 5
       start_period: 10s
 
-  frontend:
+  ui:
     build:
-      context: ./frontend
+      context: .
+      dockerfile: Dockerfile.streamlit
+    environment:
+      API_URL: http://backend:8000/api/v1
     depends_on:
       backend:
         condition: service_healthy
     ports:
-      - "5173:80"
+      - "8501:8501"
     restart: unless-stopped
 
 volumes:

@@ -3,7 +3,6 @@
 .env.local
 .env.*.local
 !.env.example
-!frontend/.env.example
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -12,12 +11,8 @@ __pycache__/
 backend/.venv/
 .venv/
 
-# Node
-node_modules/
-frontend/node_modules/
-frontend/dist/
-frontend/dist-ssr/
-*.tsbuildinfo
+# Streamlit
+.streamlit/secrets.toml
 
 # Runtime data
 data/*.db
@@ -30,16 +25,7 @@ data/*.sqlite3
 *.log
 logs/
 coverage/
-.nyc_output/
 htmlcov/
-frontend/coverage/
-
-# Tooling caches
-.vite/
-frontend/.vite/
-playwright-report/
-test-results/
-.oxlintcache
 
 # Editors and operating systems
 .vscode/*
