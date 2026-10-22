@@ -1,5 +1,5 @@
 
-"""Typed HTTP client for the Financial Parallelverse FastAPI service."""
+"""HTTP client for the Financial Parallelverse FastAPI service."""
 
 from __future__ import annotations
 
@@ -12,14 +12,14 @@ import httpx
 
 
 def _read_api_url() -> str:
-    """Read API_URL from environment, Streamlit secrets, or local .env."""
+    """Read the backend URL from environment, Streamlit Secrets, or .env."""
 
     # 1. Environment variable
     configured = os.environ.get("API_URL")
     if configured:
         return configured.strip().rstrip("/")
 
-    # 2. Streamlit Cloud secrets
+    # 2. Streamlit Cloud Secrets
     try:
         import streamlit as st
 
@@ -34,10 +34,10 @@ def _read_api_url() -> str:
 
     if env_path.is_file():
         for line in env_path.read_text(encoding="utf-8").splitlines():
-            stripped = line.strip()
+            line = line.strip()
 
-            if stripped.startswith("API_URL=") and not stripped.startswith("#"):
-                return stripped.split("=", 1)[1].strip().strip("\"'").rstrip("/")
+            if line.startswith("API_URL=") and not line.startswith("#"):
+                return line.split("=", 1)[1].strip().strip("\"'").rstrip("/")
 
     # 4. Local development fallback
     return "http://127.0.0.1:8000/api/v1"
@@ -94,7 +94,7 @@ def _request(method: str, path: str, **kwargs: Any) -> Any:
     except httpx.RequestError as exc:
         raise ApiError(
             f"Could not reach the FastAPI server at {API_URL}. "
-            "Check that the backend is deployed and API_URL is configured correctly."
+            "Check that the backend is running and API_URL is correct."
         ) from exc
 
     if response.status_code >= 400:
@@ -113,9 +113,7 @@ def _iso(value: date | str) -> str:
     return value.isoformat() if isinstance(value, date) else value
 
 
-# ---------------------------------------------------------------------------
 # Reads
-# ---------------------------------------------------------------------------
 
 def health() -> dict:
     return _request("GET", "/health")
@@ -145,9 +143,7 @@ def get_reminders() -> list[dict]:
     return _request("GET", "/installments/reminders")
 
 
-# ---------------------------------------------------------------------------
 # Mutations and calculations
-# ---------------------------------------------------------------------------
 
 def update_profile(payload: dict) -> dict:
     body = {
