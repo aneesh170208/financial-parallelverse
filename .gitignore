@@ -1,0 +1,53 @@
+# Local development
+.env
+.env.local
+.env.*.local
+!.env.example
+!frontend/.env.example
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+backend/.venv/
+.venv/
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+*.tsbuildinfo
+
+# Runtime data
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/*.sqlite
+data/*.sqlite3
+
+# Logs and coverage
+*.log
+logs/
+coverage/
+.nyc_output/
+htmlcov/
+frontend/coverage/
+
+# Tooling caches
+.vite/
+frontend/.vite/
+playwright-report/
+test-results/
+.oxlintcache
+
+# Editors and operating systems
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Docker
+.docker/

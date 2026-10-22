@@ -1,0 +1,37 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: sqlite:////data/financial_parallelverse.db
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      SEED_DEMO: "true"
+    volumes:
+      - fpv-data:/data
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health')"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+
+volumes:
+  fpv-data:

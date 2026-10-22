@@ -1,0 +1,222 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --canvas: #070c15;
+  --accent: #44dca9;
+  --line: #203047;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--canvas);
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: var(--canvas);
+  background-image:
+    radial-gradient(circle at 82% -8%, rgba(51, 214, 159, 0.085), transparent 28rem),
+    radial-gradient(circle at 7% 18%, rgba(73, 122, 178, 0.055), transparent 24rem);
+  color: #eef4f0;
+  font-family: 'Manrope Variable', Manrope, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+::selection {
+  color: #04120d;
+  background: #74e9c2;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a {
+  touch-action: manipulation;
+}
+
+button {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+:focus-visible {
+  outline: 2px solid #44dca9;
+  outline-offset: 3px;
+}
+
+input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(0.65);
+  cursor: pointer;
+}
+
+input[type='number'] {
+  font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: #070c15;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #26364d;
+  border: 2px solid #070c15;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #354963;
+}
+
+@layer components {
+  .eyebrow {
+    @apply font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-emerald-300;
+  }
+
+  .numeric {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.035em;
+  }
+
+  .surface-grid {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.024) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.024) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  .noise-layer {
+    position: relative;
+  }
+
+  .noise-layer::after {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.025;
+    content: '';
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.45'/%3E%3C/svg%3E");
+    border-radius: inherit;
+  }
+
+  .hairline {
+    @apply border border-white/[0.06];
+  }
+
+  .subtle-ring {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.035),
+      0 20px 45px -35px rgba(0, 0, 0, 0.95);
+  }
+
+  .chart-tooltip {
+    @apply rounded-xl border border-line bg-[#0A1321]/95 p-3 text-xs shadow-lift backdrop-blur-md;
+  }
+
+  .page-container {
+    @apply mx-auto w-full max-w-[1480px] px-4 pb-24 pt-6 sm:px-6 lg:px-8 lg:pb-10;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-white/[0.055];
+  }
+
+  .skeleton::after {
+    position: absolute;
+    inset: 0;
+    content: '';
+    transform: translateX(-100%);
+    background-image: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.045), transparent);
+    animation: shimmer 1.8s infinite;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.dialog-overlay[data-state='open'] {
+  animation: overlay-in 180ms ease-out both;
+}
+
+.dialog-content[data-state='open'] {
+  animation: dialog-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
