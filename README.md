@@ -29,7 +29,7 @@ Every projection is deterministic, rounded and explainable. No investment return
 | View | What it does |
 | --- | --- |
 | **Overview** | Financial weather score, 12-month savings projection, cash-flow split, planned purchase, upcoming payments and recent activity. |
-| **Parallel Futures** | Compare no purchase, buy now, wait & save, a lighter alternative, EMI and a buy + unexpected-expense path. Includes a recommendation, comparison chart, scenario details and a stress lab for salary delays and spending shocks. |
+| **Parallel Futures** | Compare no purchase, buy now, wait & save, a lighter alternative, EMI and a buy + unexpected-expense path. Includes a recommendation, ending-vs-lowest bar comparison, scenario detail bars and a stress lab for salary delays and spending shocks. |
 | **Purchase Planner** | Assess a purchase against the ring-fenced reserve, see readiness checks, a trajectory to the target date, a recommended saving pace and a saved-plan blueprint. |
 | **EMI Calculator** | Calculate reducing-balance EMIs, total interest, processing fees, effective cost and affordability context. Download the schedule or save the result directly to the tracker. |
 | **Installment Tracker** | Add, pay, delete and review installment plans. Payment reminders, overdue states, progress, monthly commitment and completed-plan history are included. |

@@ -52,11 +52,12 @@ def _scenario_dialog(scenario: dict, target: float) -> None:
     cols[1].metric("Lowest point", ui.inr(scenario["minimum_savings"]), border=True)
     cols[2].metric("Monthly commitment", ui.inr(scenario["monthly_commitment"]), border=True)
     cols[3].metric("Interest paid", ui.inr(scenario["interest_paid"]), border=True)
-    fake = {
-        "scenarios": [scenario],
-        "recommendation": {"scenario_name": scenario["name"]},
-    }
-    charts.render(charts.futures_chart(fake, target))
+    st.markdown("#### Month-by-month savings")
+    st.caption(
+        "Each bar is the projected balance at that point in the path. "
+        "The amber line marks your emergency reserve."
+    )
+    charts.render(charts.scenario_path_chart(scenario, target))
     if scenario["purchase_events"]:
         st.markdown("#### Purchase events")
         for event in scenario["purchase_events"]:
@@ -211,24 +212,65 @@ def render() -> None:
         (item for item in simulation["scenarios"] if item["id"] == recommendation["scenario_id"]),
         simulation["scenarios"][0],
     )
+    baseline = next(
+        (item for item in simulation["scenarios"] if item.get("is_baseline")),
+        None,
+    )
     target = float(profile["emergency_fund_target"])
+    ending_leader = max(simulation["scenarios"], key=lambda item: item["final_savings"])
+    deepest = min(simulation["scenarios"], key=lambda item: item["minimum_savings"])
 
     with st.container(border=True):
         ui.badge("Recommended path", "positive")
-        st.markdown(f"## {recommendation['scenario_name']}")
+        st.markdown(f"## {recommended_scenario['name']}")
         st.write(recommendation["headline"])
         st.caption(recommendation["rationale"])
         metrics = st.columns(4)
-        metrics[0].metric("Ending balance", ui.inr(recommended_scenario["final_savings"]), border=True)
-        metrics[1].metric("Lowest balance", ui.inr(recommended_scenario["minimum_savings"]), border=True)
-        metrics[2].metric("Extra to save", ui.inr(recommendation["extra_to_save"]), border=True)
-        metrics[3].metric("Interest compared", ui.inr(recommendation["total_interest_compared"]), border=True)
+        metrics[0].metric(
+            "Ending balance",
+            ui.inr(recommended_scenario["final_savings"]),
+            delta=(
+                ui.signed_inr(recommended_scenario["final_savings"] - baseline["final_savings"])
+                if baseline
+                else None
+            ),
+            help="Compared with the no-purchase path.",
+            delta_color="off",
+            border=True,
+        )
+        metrics[1].metric(
+            "Lowest balance",
+            ui.inr(recommended_scenario["minimum_savings"]),
+            delta=ui.signed_inr(recommended_scenario["minimum_savings"] - target),
+            help="Compared with your ring-fenced emergency reserve target.",
+            border=True,
+        )
+        metrics[2].metric(
+            "Extra to save",
+            ui.inr(recommendation["extra_to_save"]),
+            help="Amount beyond your safe-to-spend balance.",
+            border=True,
+        )
+        metrics[3].metric(
+            "Safe to spend now",
+            ui.inr(recommendation["safe_to_spend_now"]),
+            help="Savings above your emergency reserve. The reserve itself is never spendable.",
+            border=True,
+        )
 
     st.write("")
     with st.container(border=True):
-        st.markdown("#### Six futures, one chart")
-        st.caption("Savings trajectory by path. The amber line is your ring-fenced emergency reserve.")
+        st.markdown("#### Six futures, side by side")
+        st.caption(
+            "Ending balance and the lowest balance along each path. The amber line marks your emergency reserve; "
+            "★ marks the recommended route."
+        )
         charts.render(charts.futures_chart(simulation, target))
+        st.caption(
+            f"Highest ending balance: {ending_leader['name']} at {ui.inr(ending_leader['final_savings'])} · "
+            f"Deepest balance: {deepest['name']} at {ui.inr(deepest['minimum_savings'])} · "
+            f"Recommended: {recommended_scenario['name']}."
+        )
         st.caption(
             f"Horizon: {simulation['horizon_months']} months · Purchase: {ui.inr(simulation['purchase_amount'])} · "
             "0% assumed investment return."
@@ -238,17 +280,26 @@ def render() -> None:
     st.caption("Open any future to inspect the full path, events and assumptions.")
     columns = st.columns(3, gap="medium")
     for index, scenario in enumerate(simulation["scenarios"]):
+        is_recommended = scenario["id"] == recommendation["scenario_id"]
         with columns[index % 3]:
             with st.container(border=True):
                 ui.badge(scenario["risk_label"], ui.risk_tone(scenario["risk"]))
-                st.markdown(f"##### {scenario['name']}")
+                st.markdown(f"##### {scenario['name']}{' ★' if is_recommended else ''}")
                 st.caption(scenario["tagline"])
                 st.markdown(
                     f'<div style="font-size:1.35rem;font-weight:800;letter-spacing:-0.04em;color:#EEF5F1">'
                     f'{ui.inr(scenario["final_savings"])}</div>',
                     unsafe_allow_html=True,
                 )
-                st.caption("Projected ending savings")
+                if baseline and scenario["id"] == baseline["id"]:
+                    st.caption("Projected ending savings · reference path")
+                elif baseline:
+                    st.caption(
+                        "Projected ending savings · "
+                        f"{ui.signed_inr(scenario['final_savings'] - baseline['final_savings'])} vs no purchase"
+                    )
+                else:
+                    st.caption("Projected ending savings")
                 st.progress(min(max(scenario["score"] / 100, 0.0), 1.0))
                 st.caption(
                     f"Score {scenario['score']}/100 · lowest {ui.inr(scenario['minimum_savings'])}"
@@ -257,14 +308,19 @@ def render() -> None:
                     st.caption(f"Monthly commitment {ui.inr(scenario['monthly_commitment'])}")
                 if scenario["interest_paid"] > 0:
                     st.caption(f"Interest cost {ui.inr(scenario['interest_paid'])}")
-                if st.button("Inspect future", key=f"inspect-{scenario['id']}", width="stretch"):
+                if st.button(
+                    "Inspect future",
+                    key=f"inspect-{scenario['id']}",
+                    width="stretch",
+                    type="primary" if is_recommended else "secondary",
+                ):
                     _scenario_dialog(scenario, target)
 
     st.write("")
     with st.container(border=True):
         st.markdown("#### Stress lab")
         st.caption(
-            "The recommended future is tested against an unexpected expense, a delayed salary, higher spending, "
+            "The buy-now future is tested against an unexpected expense, a delayed salary, higher spending, "
             "and all three combined."
         )
         charts.render(charts.stress_chart(simulation["stress_tests"]))

@@ -107,53 +107,175 @@ def projection_chart(points: list[dict], target: float) -> alt.Chart:
 
 
 def futures_chart(simulation: dict, target: float) -> alt.Chart:
+    """Compare where each future ends and how low it dips.
+
+    A grouped bar chart keeps all six paths comparable without the crossing
+    lines of a multi-series trajectory chart.
+    """
+    scenarios = simulation["scenarios"]
+    recommended_id = simulation["recommendation"]["scenario_id"]
+    ordered = sorted(
+        scenarios,
+        key=lambda item: (float(item["final_savings"]), int(item["score"])),
+        reverse=True,
+    )
+
     rows: list[dict] = []
-    names: list[str] = []
-    colors: list[str] = []
-    for scenario in simulation["scenarios"]:
-        names.append(scenario["name"])
-        colors.append(scenario.get("color") or SLATE)
-        for point in scenario["path"]:
+    order: list[str] = []
+    for scenario in ordered:
+        label = str(scenario["name"])
+        if scenario["id"] == recommended_id:
+            label = f"{label} ★"
+        order.append(label)
+        for metric, amount in (
+            ("Ending balance", float(scenario["final_savings"])),
+            ("Lowest balance", float(scenario["minimum_savings"])),
+        ):
             rows.append(
                 {
-                    "date": point["date"],
-                    "savings": point["savings"],
-                    "scenario": scenario["name"],
-                    "month": point["month"],
+                    "label": label,
+                    "metric": metric,
+                    "amount": amount,
+                    "display": inr(amount, compact=True),
+                    "risk": scenario["risk_label"],
+                    "score": int(scenario["score"]),
+                    "id": scenario["id"],
                 }
             )
-    df = pd.DataFrame(rows)
-    df["date"] = pd.to_datetime(df["date"])
-    recommended = simulation["recommendation"]["scenario_name"]
 
-    line = (
+    df = pd.DataFrame(rows)
+    metrics = ["Ending balance", "Lowest balance"]
+    low = min(float(df["amount"].min()), 0.0)
+    high = max(float(df["amount"].max()), float(target), 1.0)
+    domain = [low * 1.32 if low < 0 else 0.0, high * 1.24]
+
+    bars = (
         alt.Chart(df)
-        .mark_line(interpolate="monotone")
+        .mark_bar(cornerRadiusEnd=4, height=12)
         .encode(
-            x=alt.X("date:T", title=None, axis=alt.Axis(format="%b %y", tickCount=7)),
-            y=alt.Y("savings:Q", title=None, axis=alt.Axis(format="~s")),
-            color=alt.Color("scenario:N", scale=alt.Scale(domain=names, range=colors), title=None),
-            strokeWidth=alt.condition(
-                alt.datum.scenario == recommended, alt.value(3.1), alt.value(1.5)
+            y=alt.Y(
+                "label:N",
+                sort=order,
+                title=None,
+                axis=alt.Axis(labelPadding=8, labelLimit=220),
+            ),
+            yOffset=alt.YOffset("metric:N", sort=metrics),
+            x=alt.X(
+                "amount:Q",
+                title=None,
+                axis=alt.Axis(format="~s"),
+                scale=alt.Scale(domain=domain),
+            ),
+            color=alt.Color(
+                "metric:N",
+                scale=alt.Scale(domain=metrics, range=[EMERALD, BLUE]),
+                legend=alt.Legend(title=None, symbolType="square"),
             ),
             tooltip=[
-                alt.Tooltip("scenario:N", title="Future"),
-                alt.Tooltip("date:T", format="%d %b %Y", title="Date"),
-                alt.Tooltip("savings:Q", format=",.0f", title="Savings"),
+                alt.Tooltip("label:N", title="Future"),
+                alt.Tooltip("metric:N", title="Measure"),
+                alt.Tooltip("amount:Q", format=",.0f", title="Amount"),
+                alt.Tooltip("risk:N", title="Risk"),
+                alt.Tooltip("score:Q", title="Score"),
             ],
         )
     )
-
-    layers: list[alt.Chart] = [line]
+    labels = (
+        alt.Chart(df[df["amount"] >= 0])
+        .mark_text(align="left", dx=6, color="#D7E4EF", font="Manrope", fontSize=9)
+        .encode(
+            y=alt.Y("label:N", sort=order),
+            yOffset=alt.YOffset("metric:N", sort=metrics),
+            x=alt.X("amount:Q"),
+            text=alt.Text("display:N"),
+        )
+    )
+    layers: list[alt.Chart] = [bars, labels]
+    negative = df[df["amount"] < 0]
+    if not negative.empty:
+        negative_labels = (
+            alt.Chart(negative)
+            .mark_text(align="right", dx=-6, color="#D7E4EF", font="Manrope", fontSize=9)
+            .encode(
+                y=alt.Y("label:N", sort=order),
+                yOffset=alt.YOffset("metric:N", sort=metrics),
+                x=alt.X("amount:Q"),
+                text=alt.Text("display:N"),
+            )
+        )
+        layers.append(negative_labels)
+    if low < 0:
+        zero = (
+            alt.Chart(pd.DataFrame({"zero": [0]}))
+            .mark_rule(color=SLATE, strokeWidth=1, opacity=0.5)
+            .encode(x="zero:Q")
+        )
+        layers.append(zero)
     if target > 0:
         rule = (
             alt.Chart(pd.DataFrame({"target": [target]}))
-            .mark_rule(color=AMBER, strokeDash=[5, 4], strokeWidth=1)
-            .encode(y="target:Q")
+            .mark_rule(color=AMBER, strokeDash=[5, 4], strokeWidth=1.2)
+            .encode(x="target:Q")
         )
         layers.append(rule)
 
-    return _style(alt.layer(*layers), height=350)
+    return _style(alt.layer(*layers), height=360)
+
+
+def scenario_path_chart(scenario: dict, target: float) -> alt.Chart:
+    """Monthly savings bars for a single future, with the reserve marked."""
+    df = pd.DataFrame(scenario["path"])
+    df["date"] = pd.to_datetime(df["date"])
+    df["tick"] = df["date"].dt.strftime("%b %y")
+    df.loc[df["month"] == 0, "tick"] = "Now"
+    order = list(df["tick"])
+    step = max(1, len(order) // 12)
+    ticks = order[::step]
+    if order[-1] not in ticks:
+        ticks.append(order[-1])
+    color = scenario.get("color") or EMERALD
+
+    bars = (
+        alt.Chart(df)
+        .mark_bar(
+            cornerRadiusTopLeft=4,
+            cornerRadiusTopRight=4,
+            color=color,
+            opacity=0.92,
+        )
+        .encode(
+            x=alt.X(
+                "tick:O",
+                sort=order,
+                title=None,
+                axis=alt.Axis(labelAngle=-40, labelFontSize=9, values=ticks),
+            ),
+            y=alt.Y("savings:Q", title=None, axis=alt.Axis(format="~s")),
+            tooltip=[
+                alt.Tooltip("tick:N", title="Month"),
+                alt.Tooltip("savings:Q", format=",.0f", title="Savings"),
+                alt.Tooltip("cash_flow:Q", format=",.0f", title="Monthly cash flow"),
+                alt.Tooltip("event:N", title="Event"),
+            ],
+        )
+    )
+    layers: list[alt.Chart] = [bars]
+    if target > 0:
+        rule = (
+            alt.Chart(pd.DataFrame({"target": [target]}))
+            .mark_rule(color=AMBER, strokeDash=[5, 4], strokeWidth=1.2)
+            .encode(y="target:Q")
+        )
+        layers.append(rule)
+    if float(df["savings"].min()) < 0:
+        zero = (
+            alt.Chart(pd.DataFrame({"zero": [0]}))
+            .mark_rule(color=SLATE, strokeWidth=1, opacity=0.5)
+            .encode(y="zero:Q")
+        )
+        layers.append(zero)
+
+    return _style(alt.layer(*layers), height=270, legend=False)
 
 
 def cashflow_chart(cashflow: dict) -> alt.Chart:
